@@ -74,7 +74,7 @@ python -m news_prism.poc https://aws.amazon.com/jp/blogs/news/
 
 ```bash
 cd infra
-cp terraform.tfvars.example terraform.tfvars   # bedrock_model_id を埋める
+cp terraform.tfvars.example terraform.tfvars   # bedrock_model_id (必須) / context_url (任意) 等を埋める
 
 ./build.sh                    # Lambda 用 zip を生成 (uv pip でクロスプラットフォーム build)
 terraform init
@@ -199,4 +199,4 @@ SSL_CERT_FILE=/path/to/ca-bundle.pem
 
 ## Author
 
-Taka Tadokoro
+Takayuki Tadokoro
