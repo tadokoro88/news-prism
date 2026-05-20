@@ -1,7 +1,7 @@
 {
   "name": "News Prism",
   "short_name": "News Prism",
-  "description": "通勤中に気になった記事を、3 視点 + 要約で深掘り",
+  "description": "通勤中に気になった記事を、要約 + 3 視点で深掘り",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
