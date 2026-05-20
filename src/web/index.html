@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <title>News Prism</title>
+
+    <!-- iOS Safari: ホーム画面に追加した時にフルスクリーン Web アプリとして起動 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="News Prism" />
+    <meta name="theme-color" content="#2a6fb5" />
+
+    <!-- アイコン (180x180 PNG を src/web/apple-touch-icon.png に置くと使われる)
+         無ければ iOS はページ screenshot をアイコン化する -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <style>
+      :root {
+        --fg: #1a1a1a;
+        --bg: #fafafa;
+        --muted: #6b6b6b;
+        --accent: #2a6fb5;
+        --border: #d8d8d8;
+        --card: #ffffff;
+        --danger: #b53a3a;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fg: #e8e8e8;
+          --bg: #14171a;
+          --muted: #9aa0a6;
+          --accent: #5da9f0;
+          --border: #2a2f35;
+          --card: #1c2024;
+          --danger: #e07a7a;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans",
+          "Noto Sans JP", sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+        color: var(--fg);
+        background: var(--bg);
+      }
+      .wrap {
+        max-width: 720px;
+        margin: 0 auto;
+        /* iPhone notch / home indicator を避ける */
+        padding:
+          calc(20px + env(safe-area-inset-top))
+          calc(16px + env(safe-area-inset-right))
+          calc(80px + env(safe-area-inset-bottom))
+          calc(16px + env(safe-area-inset-left));
+      }
+      header {
+        margin-bottom: 16px;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin: 0 0 4px;
+      }
+      .subtitle {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      form {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+        margin: 16px 0;
+      }
+      label {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      input[type="url"],
+      textarea {
+        width: 100%;
+        padding: 10px;
+        font-size: 1rem;
+        font-family: inherit;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+      }
+      textarea {
+        min-height: 80px;
+        resize: vertical;
+      }
+      details {
+        margin-top: 8px;
+      }
+      summary {
+        cursor: pointer;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      button {
+        margin-top: 12px;
+        width: 100%;
+        padding: 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        color: white;
+        background: var(--accent);
+        border: 0;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: progress;
+      }
+      .status {
+        margin: 12px 0;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .status.err {
+        color: var(--danger);
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 14px 16px;
+        margin: 12px 0;
+      }
+      .card h2 {
+        font-size: 1.05rem;
+        margin: 0 0 8px;
+      }
+      .card .meta {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .persona-block {
+        padding: 12px 0;
+        border-top: 1px solid var(--border);
+      }
+      .persona-block:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+      .persona-name {
+        font-weight: 600;
+        color: var(--accent);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 6px;
+      }
+      .persona-body,
+      .summary-body {
+        font-size: 0.95rem;
+      }
+      .persona-body p,
+      .summary-body p {
+        margin: 0 0 0.9em;
+      }
+      .persona-body p:last-child,
+      .summary-body p:last-child {
+        margin-bottom: 0;
+      }
+      .chip {
+        display: inline-block;
+        padding: 2px 8px;
+        margin-right: 4px;
+        margin-top: 4px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+      ul.actions {
+        margin: 4px 0;
+        padding-left: 18px;
+      }
+      ul.actions li {
+        margin-bottom: 6px;
+      }
+      ul.actions .persona-tag {
+        font-size: 0.75rem;
+        color: var(--accent);
+        margin-right: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>News Prism</h1>
+        <p class="subtitle">
+          通勤中に気になった記事を、3 視点 (SCoE / Supply Chain / Blogger) + 要約で深掘り
+        </p>
+      </header>
+
+      <form id="form">
+        <label for="url">記事 URL</label>
+        <input
+          id="url"
+          name="url"
+          type="url"
+          required
+          placeholder="https://example.com/article"
+          autocomplete="off"
+          inputmode="url"
+        />
+
+        <details>
+          <summary>記事 fetch に失敗する時は本文を直接貼る</summary>
+          <label for="body" style="margin-top: 8px">本文 (任意)</label>
+          <textarea
+            id="body"
+            name="body"
+            placeholder="paste mode。記事 fetch が paywall や JS レンダリングで失敗するとき用"
+          ></textarea>
+        </details>
+
+        <button id="submit" type="submit">解析する</button>
+      </form>
+
+      <div id="status" class="status" aria-live="polite"></div>
+      <div id="result"></div>
+    </div>
+
+    <script>
+      const PERSONA_LABEL = {
+        scoe: "SCoE",
+        supply_chain_security: "Supply Chain",
+        blogger: "Blogger",
+      };
+
+      const form = document.getElementById("form");
+      const status = document.getElementById("status");
+      const result = document.getElementById("result");
+      const submit = document.getElementById("submit");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const url = document.getElementById("url").value.trim();
+        const body = document.getElementById("body").value.trim();
+        if (!url) return;
+
+        submit.disabled = true;
+        result.innerHTML = "";
+        status.className = "status";
+        const startedAt = performance.now();
+        status.textContent = "解析中... (4 並列 Bedrock 呼び出し、12〜15 秒)";
+
+        const payload = body ? { url, article_body: body } : { url };
+        try {
+          const resp = await fetch("/api/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await resp.json();
+          if (!resp.ok) {
+            // 422 = article fetch 失敗 (bot 防御 / paywall 等)。paste 欄を自動展開
+            if (resp.status === 422) {
+              const details = document.querySelector("details");
+              if (details) details.open = true;
+              const hint = data.hint
+                ? ` — ${data.hint}`
+                : " — 本文を直接貼って再実行してください";
+              status.className = "status err";
+              status.textContent = `${data.error || "fetch 失敗"}${hint}`;
+              return;
+            }
+            throw new Error(data.error || `HTTP ${resp.status}`);
+          }
+          const ms = Math.round(performance.now() - startedAt);
+          status.textContent = `完了 (client ${ms}ms / wall ${data.meta.wall_time_ms}ms)`;
+          renderResult(data);
+        } catch (err) {
+          status.className = "status err";
+          status.textContent = `エラー: ${err.message}`;
+        } finally {
+          submit.disabled = false;
+        }
+      });
+
+      function renderResult({ result: r, meta }) {
+        const failed = (meta.failed_personas || []).length
+          ? `<span class="chip">failed: ${meta.failed_personas.join(", ")}</span>`
+          : "";
+
+        const tu = meta.total_usage;
+        const metaLine =
+          `<span class="chip">in ${tu.input_tokens}</span>` +
+          `<span class="chip">cache_r ${tu.cache_read_input_tokens}</span>` +
+          `<span class="chip">cache_w ${tu.cache_write_input_tokens}</span>` +
+          `<span class="chip">out ${tu.output_tokens}</span>` +
+          failed;
+
+        const okrs = (r.relevant_okr_refs || [])
+          .map((k) => `<span class="chip">${escapeHtml(k)}</span>`)
+          .join("");
+
+        const perspectives = Object.entries(r.perspectives || {})
+          .map(
+            ([key, body]) =>
+              `<div class="persona-block">
+                 <div class="persona-name">${PERSONA_LABEL[key] || key}</div>
+                 <div class="persona-body">${formatText(body)}</div>
+               </div>`,
+          )
+          .join("");
+
+        const actions = (r.action_items || [])
+          .map(
+            (a) =>
+              `<li>
+                 <span class="persona-tag">${PERSONA_LABEL[a.persona] || a.persona}</span>
+                 ${escapeHtml(a.action)}
+                 ${(a.linked_okr_refs || []).map((k) => `<span class="chip">${escapeHtml(k)}</span>`).join("")}
+               </li>`,
+          )
+          .join("");
+
+        result.innerHTML = `
+          <div class="card">
+            <div class="meta">${escapeHtml(r.fetched_at)}</div>
+            <h2>${escapeHtml(r.title || r.url)}</h2>
+            <div>${metaLine}</div>
+          </div>
+          <div class="card">
+            <h2>要約</h2>
+            <div class="summary-body">${formatText(r.summary || "")}</div>
+          </div>
+          <div class="card">
+            <h2>多視点</h2>
+            ${perspectives}
+          </div>
+          ${
+            actions
+              ? `<div class="card">
+                   <h2>アクション</h2>
+                   <ul class="actions">${actions}</ul>
+                 </div>`
+              : ""
+          }
+          ${
+            okrs
+              ? `<div class="card">
+                   <h2>関連 OKR</h2>
+                   <div>${okrs}</div>
+                 </div>`
+              : ""
+          }
+          <div class="card">
+            <div class="meta">analysis_id: ${escapeHtml(r.analysis_id || "")}</div>
+            <details>
+              <summary>raw JSON</summary>
+              <pre style="white-space:pre-wrap;font-size:0.8rem">${escapeHtml(
+                JSON.stringify({ result: r, meta }, null, 2),
+              )}</pre>
+            </details>
+          </div>
+        `;
+      }
+
+      function escapeHtml(s) {
+        if (s == null) return "";
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      // 文末 (。？！) で改行、\n\n で段落区切り (<p>)。閉じ括弧の直前では改行しない。
+      function formatText(s) {
+        if (s == null || s === "") return "";
+        const escaped = escapeHtml(s);
+        const paragraphs = escaped.split(/\n\s*\n/);
+        return paragraphs
+          .map((p) => {
+            const withBreaks = p
+              .replace(/\n/g, "<br>")
+              .replace(/([。？！])(?![」』）\)])/g, "$1<br>")
+              .replace(/<br>$/, "");
+            return `<p>${withBreaks}</p>`;
+          })
+          .join("");
+      }
+    </script>
+  </body>
+</html>

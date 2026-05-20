@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+build/
+dist/
+
+# Virtual env
+.venv/
+venv/
+activate/
+
+# Env files (secrets)
+.env
+.env.local
+
+# Tooling caches
+.ruff_cache/
+.pytest_cache/
+.pyright/
+.claude/
+
+# OS
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Internal (not for public repo)
+CLAUDE.md
+project/
+data/

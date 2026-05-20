@@ -1,0 +1,50 @@
+# Copy to terraform.tfvars and fill in.
+# `terraform.tfvars` は .gitignore 済 → 個人値や sensitive 値はこちらに置く。
+# 全変数の定義は variables.tf を参照。
+
+# ============================================================
+# 必須 (default なし)
+# ============================================================
+
+# Bedrock model ID — APAC CRIS inference profile or model ID
+# 例: "jp.anthropic.claude-sonnet-4-6" / "apac.anthropic.claude-sonnet-4-5-20250929-v1:0"
+bedrock_model_id = "REPLACE_ME"
+
+# 個人化 context.md の URL (任意)。
+# 設定しないと context なしで動作 (= 3 視点解析として動く)。
+# private repo を使うなら、別途 Secrets Manager に PAT を put-secret-value する必要あり。
+# 例: "https://raw.githubusercontent.com/<account>/<repo>/main/context.md"
+# context_url = ""
+
+# ============================================================
+# 任意 override (必要なら uncomment)
+# ============================================================
+
+# --- AWS / Project ---
+# aws_region   = "ap-northeast-1"
+# project_name = "news-prism"
+
+# --- Web UI ドメイン (Phase 3) ---
+# default は "news-prism.korotora.com"。別ドメインで運用するなら override
+# web_domain = "news-prism.korotora.com"
+
+# --- Lambda チューニング ---
+# lambda_timeout_seconds    = 60
+# lambda_memory_mb          = 1024
+# lambda_log_retention_days = 30
+
+# --- API Gateway / Usage Plan ---
+# api_stage_name     = "v1"
+# api_throttle_burst = 5    # 短期 spike
+# api_throttle_rate  = 2    # rps
+# api_quota_limit    = 100  # 日次 quota
+
+# ============================================================
+# 機密値は Terraform 外で扱う (tfstate に残るのを避ける)
+# ============================================================
+
+# GitHub PAT は Secrets Manager で扱うため tfvars には書かない。
+# `terraform apply` 後に AWS CLI で値を put する:
+#   aws secretsmanager put-secret-value \
+#     --secret-id news-prism/github-pat \
+#     --secret-string "github_pat_xxxxx"

@@ -1,0 +1,6 @@
+# Lambda 用 dependencies。pyproject.toml と分ける:
+#  - boto3 / botocore は Lambda Python 3.12 runtime に同梱されているので ship しない
+#  - python-dotenv は Lambda では不要 (env vars は Lambda 設定から直接取る)
+trafilatura>=1.12
+lxml>=5.2
+certifi>=2024.0

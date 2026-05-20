@@ -1,0 +1,14 @@
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+crash.log
+crash.*.log
+
+# Lambda build artifacts
+build/
+lambda.zip
+
+# tfvars with secrets (only commit the .example)
+*.tfvars
+!*.tfvars.example
