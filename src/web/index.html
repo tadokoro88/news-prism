@@ -67,6 +67,14 @@
       h1 {
         font-size: 1.5rem;
         margin: 0 0 4px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .h1-icon {
+        width: 1.3em;
+        height: 1.3em;
+        border-radius: 22%;
       }
       .subtitle {
         color: var(--muted);
@@ -123,6 +131,23 @@
       button:disabled {
         opacity: 0.6;
         cursor: progress;
+      }
+      .button-row {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .button-row button {
+        margin-top: 0;
+      }
+      .button-row #submit {
+        flex: 2;
+      }
+      .button-row #reset {
+        flex: 1;
+        background: transparent;
+        color: var(--accent);
+        border: 1px solid var(--accent);
       }
       .status {
         margin: 12px 0;
@@ -204,9 +229,12 @@
   <body>
     <div class="wrap">
       <header>
-        <h1>News Prism</h1>
+        <h1>
+          <img src="/apple-touch-icon.png" alt="" class="h1-icon" />
+          News Prism
+        </h1>
         <p class="subtitle">
-          通勤中に気になった記事を、要約 + 3 視点 (SCoE / Supply Chain / Blogger) で深掘り
+          気になる記事を、要約 + 目標に沿って独自視点で深掘り
         </p>
       </header>
 
@@ -232,7 +260,10 @@
           ></textarea>
         </details>
 
-        <button id="submit" type="submit">解析する</button>
+        <div class="button-row">
+          <button id="submit" type="submit">実行</button>
+          <button id="reset" type="button">リセット</button>
+        </div>
       </form>
 
       <div id="status" class="status" aria-live="polite"></div>
@@ -250,6 +281,13 @@
       const status = document.getElementById("status");
       const result = document.getElementById("result");
       const submit = document.getElementById("submit");
+      const resetBtn = document.getElementById("reset");
+
+      resetBtn.addEventListener("click", () => {
+        document.getElementById("url").value = "";
+        document.getElementById("body").value = "";
+        document.getElementById("url").focus();
+      });
 
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -328,7 +366,7 @@
             (a) =>
               `<li>
                  <span class="persona-tag">${PERSONA_LABEL[a.persona] || a.persona}</span>
-                 ${escapeHtml(a.action)}
+                 ${markdownBold(escapeHtml(a.action))}
                  ${(a.linked_okr_refs || []).map((k) => `<span class="chip">${escapeHtml(k)}</span>`).join("")}
                </li>`,
           )
@@ -345,7 +383,7 @@
             <div class="summary-body">${formatText(r.summary || "")}</div>
           </div>
           <div class="card">
-            <h2>多視点</h2>
+            <h2>独自視点</h2>
             ${perspectives}
           </div>
           ${
@@ -386,10 +424,15 @@
           .replace(/'/g, "&#39;");
       }
 
+      // escapeHtml 後に **bold** → <strong>bold</strong> へ変換。XSS は escapeHtml で先に潰れている。
+      function markdownBold(escaped) {
+        return escaped.replace(/\*\*([^*]+?)\*\*/g, "<strong>$1</strong>");
+      }
+
       // 文末 (。？！) で改行、\n\n で段落区切り (<p>)。閉じ括弧の直前では改行しない。
       function formatText(s) {
         if (s == null || s === "") return "";
-        const escaped = escapeHtml(s);
+        const escaped = markdownBold(escapeHtml(s));
         const paragraphs = escaped.split(/\n\s*\n/);
         return paragraphs
           .map((p) => {

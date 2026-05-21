@@ -137,7 +137,7 @@ def _analyze_persona(
 
 
 def _empty_perspective(reason: str) -> str:
-    return f"特になし: {reason}"
+    return f"(特になし) {reason}"
 
 
 def _aggregate(results: dict[str, dict[str, Any] | None]) -> dict[str, Any]:
