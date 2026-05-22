@@ -70,10 +70,10 @@ variable "web_domain" {
   type        = string
 }
 
-# --- Cost guardrails (Budgets + Anomaly Detection) ---
+# --- Cost guardrails (Budgets) ---
 
 variable "budget_notification_email" {
-  description = "AWS Budgets / Cost Anomaly Detection の alert 通知先 email"
+  description = "AWS Budgets の alert 通知先 email"
   type        = string
 }
 
@@ -81,10 +81,4 @@ variable "budget_monthly_limit_usd" {
   description = "AWS Budgets の月額上限 (USD)。50%/100%/予測 200% で email 通知"
   type        = number
   default     = 50
-}
-
-variable "cost_anomaly_threshold_usd" {
-  description = "Cost Anomaly Detection の閾値 (USD)。サービス単位で この額以上の予期せぬ増加で alert"
-  type        = number
-  default     = 10
 }

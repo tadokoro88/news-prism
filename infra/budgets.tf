@@ -1,12 +1,13 @@
-# Cost guardrails — Budgets + Cost Anomaly Detection
+# Cost guardrails — Budgets only
 #
 # 個人ツールで「うっかり認証なし公開」+「Bedrock の per-token 課金」の組み合わせは
-# 気付かないうちに月数万円コースになり得るため、二段で保険を張る:
-#   1. Budgets: 月額の絶対上限。actual 50%/100% と forecast 200% で email
-#   2. Cost Anomaly Detection: サービス単位の "通常時より N USD 以上多い" を検知
-#
-# どちらも auto-stop 機能はないので、alert を受けて手で API key 失効 / Lambda 殺し
+# 気付かないうちに月数万円コースになり得るため、Budgets で多段 alert を張る。
+# auto-stop 機能はないので、alert を受けて手で API key 失効 / Lambda 殺し
 # まで持っていく前提の早期警報。
+#
+# Cost Anomaly Detection は AWS の Default-Services-Monitor (アカウント作成時に
+# 自動付与される DIMENSIONAL monitor) を console 側でそのまま使う方針 (DECISION-0021)。
+# Terraform から扱うとアカウント固有 ARN を public repo に持つ必要が出るため除外。
 
 resource "aws_budgets_budget" "monthly" {
   name         = "${var.project_name}-monthly"
@@ -40,30 +41,5 @@ resource "aws_budgets_budget" "monthly" {
     threshold_type             = "PERCENTAGE"
     notification_type          = "FORECASTED"
     subscriber_email_addresses = [var.budget_notification_email]
-  }
-}
-
-resource "aws_ce_anomaly_monitor" "service" {
-  name              = "${var.project_name}-service-anomaly"
-  monitor_type      = "DIMENSIONAL"
-  monitor_dimension = "SERVICE"
-}
-
-resource "aws_ce_anomaly_subscription" "service" {
-  name             = "${var.project_name}-service-anomaly-sub"
-  frequency        = "DAILY"
-  monitor_arn_list = [aws_ce_anomaly_monitor.service.arn]
-
-  subscriber {
-    type    = "EMAIL"
-    address = var.budget_notification_email
-  }
-
-  threshold_expression {
-    dimension {
-      key           = "ANOMALY_TOTAL_IMPACT_ABSOLUTE"
-      match_options = ["GREATER_THAN_OR_EQUAL"]
-      values        = [tostring(var.cost_anomaly_threshold_usd)]
-    }
   }
 }
