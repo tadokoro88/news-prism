@@ -46,8 +46,7 @@ budget_notification_email = "REPLACE_ME@example.com"
 # api_quota_limit    = 100  # 日次 quota
 
 # --- Cost guardrails ---
-# budget_monthly_limit_usd   = 50   # 月額上限 (USD)。50%/100%/forecast 200% で email
-# cost_anomaly_threshold_usd = 10   # Anomaly Detection の閾値 (USD)
+# budget_monthly_limit_usd = 50   # 月額上限 (USD)。50%/100%/forecast 200% で email
 
 # ============================================================
 # 機密値は Terraform 外で扱う (tfstate に残るのを避ける)
