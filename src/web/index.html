@@ -11,7 +11,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="News Prism" />
-    <meta name="theme-color" content="#2a6fb5" />
+    <meta name="theme-color" content="#ca7c5e" />
 
     <!-- アイコン (180x180 PNG を src/web/apple-touch-icon.png に置くと使われる)
          無ければ iOS はページ screenshot をアイコン化する -->
@@ -22,7 +22,8 @@
         --fg: #1a1a1a;
         --bg: #fafafa;
         --muted: #6b6b6b;
-        --accent: #2a6fb5;
+        --accent: #b56a4c;
+        --accent-button: #ca7c5e;
         --border: #d8d8d8;
         --card: #ffffff;
         --danger: #b53a3a;
@@ -32,7 +33,8 @@
           --fg: #e8e8e8;
           --bg: #14171a;
           --muted: #9aa0a6;
-          --accent: #5da9f0;
+          --accent: #e09478;
+          --accent-button: #ca7c5e;
           --border: #2a2f35;
           --card: #1c2024;
           --danger: #e07a7a;
@@ -123,7 +125,7 @@
         font-size: 1rem;
         font-weight: 600;
         color: white;
-        background: var(--accent);
+        background: var(--accent-button);
         border: 0;
         border-radius: 6px;
         cursor: pointer;
@@ -146,8 +148,8 @@
       .button-row #reset {
         flex: 1;
         background: transparent;
-        color: var(--accent);
-        border: 1px solid var(--accent);
+        color: var(--accent-button);
+        border: 1px solid var(--accent-button);
       }
       .status {
         margin: 12px 0;
@@ -234,7 +236,7 @@
           News Prism
         </h1>
         <p class="subtitle">
-          気になる記事を、要約 + 目標に沿って独自視点で深掘り
+          気になる記事を要約 + 目標に沿って独自視点で深掘り
         </p>
       </header>
 
@@ -379,7 +381,7 @@
             <div>${metaLine}</div>
           </div>
           <div class="card">
-            <h2>要約</h2>
+            <h2>記事の要約</h2>
             <div class="summary-body">${formatText(r.summary || "")}</div>
           </div>
           <div class="card">
@@ -397,7 +399,7 @@
           ${
             okrs
               ? `<div class="card">
-                   <h2>関連 OKR</h2>
+                   <h2>関連する目標</h2>
                    <div>${okrs}</div>
                  </div>`
               : ""
