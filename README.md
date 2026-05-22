@@ -74,7 +74,7 @@ python -m news_prism.poc https://aws.amazon.com/jp/blogs/news/
 
 ```bash
 cd infra
-cp terraform.tfvars.example terraform.tfvars   # bedrock_model_id (必須) / context_url (任意) 等を埋める
+cp terraform.tfvars.example terraform.tfvars   # bedrock_model_id / web_domain / budget_notification_email (いずれも必須) / context_url (任意) 等を埋める
 
 ./build.sh                    # Lambda 用 zip を生成 (uv pip でクロスプラットフォーム build)
 terraform init
@@ -178,6 +178,37 @@ SSL_CERT_FILE=/path/to/ca-bundle.pem
 `src/news_prism/prompts.py` の `_PERSONA_SYSTEMS` を書き換える。persona 名 (キー) と persona 数を変えるなら `PERSONAS` 定数も更新する。
 
 ---
+
+## 開発
+
+### 依存管理 (uv)
+
+開発依存は `pyproject.toml` + `uv.lock` で固定。Lambda 用依存は `infra/requirements-lambda.txt` で別管理 (Lambda runtime 同梱の boto3 等を ship 対象から外すため)。
+
+```bash
+# 環境セットアップ (lockfile に従う)
+uv sync --extra dev
+
+# 依存を追加
+uv add <package>                          # pyproject.toml + uv.lock 同時更新
+
+# 個別 package を update
+uv lock --upgrade-package <package>
+
+# 全 package を update
+uv lock --upgrade
+```
+
+`uv.lock` を更新したら必ず commit する (clone 後 `uv sync` で同じ環境が再現できるため)。
+
+### 品質チェック
+
+```bash
+uv run pytest tests/             # テスト
+uv run ruff check . --fix        # lint + auto-fix
+uv run ruff format .             # format
+uv run pyright src/news_prism/   # 型チェック
+```
 
 ## 主な設計選択 (要点だけ)
 
