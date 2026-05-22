@@ -183,13 +183,18 @@
         border-top: 0;
         padding-top: 0;
       }
-      .persona-name {
+      .persona-name,
+      ul.actions .persona-tag {
         font-weight: 600;
         color: var(--accent);
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
+        font-size: 1rem;
+      }
+      .persona-name {
+        display: block;
         margin-bottom: 6px;
+      }
+      ul.actions .persona-tag::after {
+        content: ":";
       }
       .persona-body,
       .summary-body {
@@ -220,11 +225,6 @@
       }
       ul.actions li {
         margin-bottom: 6px;
-      }
-      ul.actions .persona-tag {
-        font-size: 0.75rem;
-        color: var(--accent);
-        margin-right: 6px;
       }
     </style>
   </head>
