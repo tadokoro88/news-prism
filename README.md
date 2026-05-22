@@ -58,9 +58,9 @@
 ### ① ローカル CLI で試す
 
 ```bash
-# 依存を入れる
-uv venv && source .venv/bin/activate
-uv pip install -e ".[dev]"
+# 依存を入れる (uv.lock に従って固定バージョンで sync)
+uv sync --extra dev
+source .venv/bin/activate
 
 # .env を作る (.env.example を参照)
 cp .env.example .env
