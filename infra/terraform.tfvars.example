@@ -10,6 +10,9 @@
 # 例: "jp.anthropic.claude-sonnet-4-6" / "apac.anthropic.claude-sonnet-4-5-20250929-v1:0"
 bedrock_model_id = "REPLACE_ME"
 
+# Budgets / Cost Anomaly Detection の通知先 email (必須)
+budget_notification_email = "REPLACE_ME@example.com"
+
 # 個人化 context.md の URL (任意)。
 # 設定しないと context なしで動作 (= 3 視点解析として動く)。
 # private repo を使うなら、別途 Secrets Manager に PAT を put-secret-value する必要あり。
@@ -38,6 +41,10 @@ bedrock_model_id = "REPLACE_ME"
 # api_throttle_burst = 5    # 短期 spike
 # api_throttle_rate  = 2    # rps
 # api_quota_limit    = 100  # 日次 quota
+
+# --- Cost guardrails ---
+# budget_monthly_limit_usd   = 50   # 月額上限 (USD)。50%/100%/forecast 200% で email
+# cost_anomaly_threshold_usd = 10   # Anomaly Detection の閾値 (USD)
 
 # ============================================================
 # 機密値は Terraform 外で扱う (tfstate に残るのを避ける)

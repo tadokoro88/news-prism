@@ -27,6 +27,12 @@ from news_prism.dynamodb_writer import (
 
 _DEFAULT_USER_ID = "taka"
 
+# 入力サイズ上限 — Bedrock コスト abuse と Lambda memory 枯渇の両方を防ぐ
+# URL: 通常 256 chars 程度、long share URL でも 1KB 内に収まる
+# article_body: 100K chars ≒ 日本語で 25-50K tokens、Sonnet 1 req あたり数十円に収まる範囲
+_MAX_URL_CHARS = 2048
+_MAX_ARTICLE_BODY_CHARS = 100_000
+
 logger = logging.getLogger()
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
@@ -76,24 +82,44 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     url = payload.get("url")
     if not isinstance(url, str) or not url.startswith(("http://", "https://")):
         return _response(400, {"error": "field 'url' must be an http(s) URL"})
+    if len(url) > _MAX_URL_CHARS:
+        return _response(
+            400, {"error": f"field 'url' too long (>{_MAX_URL_CHARS} chars)"}
+        )
 
     # 1. 記事本文 — body 内の article_body 優先 (paste mode 相当)
     article_body = payload.get("article_body")
     title: str | None = None
     if isinstance(article_body, str) and article_body.strip():
+        if len(article_body) > _MAX_ARTICLE_BODY_CHARS:
+            return _response(
+                400,
+                {
+                    "error": (
+                        f"field 'article_body' too long "
+                        f"(>{_MAX_ARTICLE_BODY_CHARS} chars)"
+                    )
+                },
+            )
         logger.info("using article_body from request (%d chars)", len(article_body))
     else:
         try:
             article_body, title = fetch_article(url)
         except ArticleFetchError as e:
             logger.warning("article fetch failed: %s", e)
+            # 内部の例外詳細 (refused IP, redirect 履歴等) は client に出さない
             return _response(
                 422,
                 {
-                    "error": f"article fetch failed: {e}",
+                    "error": "article fetch failed",
                     "hint": "POST { url, article_body } で本文を直接送る fallback が使えます",
                 },
             )
+        if len(article_body) > _MAX_ARTICLE_BODY_CHARS:
+            logger.warning(
+                "fetched article_body exceeds limit: %d chars", len(article_body)
+            )
+            return _response(422, {"error": "fetched article body too large"})
 
     # 2. my-goals context.md
     try:
@@ -106,9 +132,10 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     # 3. Bedrock 4 並列呼び出し
     try:
         result = analyze(context_md, article_body)
-    except RuntimeError as e:
+    except RuntimeError:
         logger.exception("bedrock orchestration failed")
-        return _response(502, {"error": f"bedrock orchestration failed: {e}"})
+        # 上流の詳細 (model id, ARN, region 等) は client に出さない
+        return _response(502, {"error": "upstream orchestration error"})
 
     # 4. DynamoDB 保存 (DECISION-0015 schema)
     analysis_id = generate_ulid()
