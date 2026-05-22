@@ -10,6 +10,10 @@
 # 例: "jp.anthropic.claude-sonnet-4-6" / "apac.anthropic.claude-sonnet-4-5-20250929-v1:0"
 bedrock_model_id = "REPLACE_ME"
 
+# Web UI を公開するドメイン (Route53 親 zone は別管理想定)
+# 例: "news-prism.example.com"
+web_domain = "REPLACE_ME.example.com"
+
 # 個人化 context.md の URL (任意)。
 # 設定しないと context なしで動作 (= 3 視点解析として動く)。
 # private repo を使うなら、別途 Secrets Manager に PAT を put-secret-value する必要あり。
@@ -25,8 +29,7 @@ bedrock_model_id = "REPLACE_ME"
 # project_name = "news-prism"
 
 # --- Web UI ドメイン (Phase 3) ---
-# default は "news-prism.korotora.com"。別ドメインで運用するなら override
-# web_domain = "news-prism.korotora.com"
+# web_domain は必須 (上部の「必須」セクション参照)
 
 # --- Lambda チューニング ---
 # lambda_timeout_seconds    = 60

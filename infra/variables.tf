@@ -66,7 +66,6 @@ variable "api_quota_limit" {
 # --- Web UI (Phase 3) ---
 
 variable "web_domain" {
-  description = "Web UI を公開するドメイン (例: news-prism.korotora.com)"
+  description = "Web UI を公開するドメイン (例: news-prism.example.com)。必須 — local tfvars に実値を設定する"
   type        = string
-  default     = "news-prism.korotora.com"
 }
