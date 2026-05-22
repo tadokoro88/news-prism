@@ -10,31 +10,22 @@ PAT 取得経路 (DECISION-0017):
 from __future__ import annotations
 
 import os
-import ssl
 import urllib.error
 import urllib.request
 
 import boto3
 from botocore.exceptions import ClientError
 
+from news_prism.http_safety import (
+    UnsafeURLError,
+    make_ssl_context,
+    safe_urlopen_bytes,
+)
 
-def _make_ssl_context() -> ssl.SSLContext | None:
-    """SSL_CERT_FILE があればそれを優先、なければ certifi、それもなければ default。
+_SSL_CONTEXT = make_ssl_context()
 
-    企業 MITM プロキシ環境では SSL_CERT_FILE に社内 CA を含むバンドルを指す。
-    """
-    ssl_cert_file = os.environ.get("SSL_CERT_FILE")
-    if ssl_cert_file:
-        return ssl.create_default_context(cafile=ssl_cert_file)
-    try:
-        import certifi
-
-        return ssl.create_default_context(cafile=certifi.where())
-    except ImportError:
-        return None
-
-
-_SSL_CONTEXT = _make_ssl_context()
+# context.md は OKR markdown 想定。512KB を超えるなら prompt token も嵩むので reject
+_MAX_RESPONSE_BYTES = 512 * 1024
 
 # NEWS_PRISM_CONTEXT_URL を env で渡す。未設定なら fetch をスキップ (= 個人化なし、3 視点解析として動く)
 # 例: my-goals 等の private repo の raw URL
@@ -104,9 +95,16 @@ def fetch_context(timeout: float = 5.0) -> str:
 
     req = urllib.request.Request(context_url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=timeout, context=_SSL_CONTEXT) as resp:
-            return resp.read().decode("utf-8")
+        raw, _ = safe_urlopen_bytes(
+            req,
+            timeout=timeout,
+            ssl_context=_SSL_CONTEXT,
+            max_bytes=_MAX_RESPONSE_BYTES,
+        )
+    except UnsafeURLError as e:
+        raise ContextFetchError(f"refused unsafe context URL: {e}") from e
     except urllib.error.HTTPError as e:
         raise ContextFetchError(f"HTTP {e.code}: {e.reason}") from e
     except urllib.error.URLError as e:
         raise ContextFetchError(f"URL error: {e.reason}") from e
+    return raw.decode("utf-8")

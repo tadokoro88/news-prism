@@ -2,32 +2,22 @@
 
 from __future__ import annotations
 
-import os
 import re
-import ssl
 import urllib.error
 import urllib.request
 
 import trafilatura
 
+from news_prism.http_safety import (
+    UnsafeURLError,
+    make_ssl_context,
+    safe_urlopen_bytes,
+)
 
-def _make_ssl_context() -> ssl.SSLContext | None:
-    """SSL_CERT_FILE があればそれを優先、なければ certifi、それもなければ default。
+_SSL_CONTEXT = make_ssl_context()
 
-    企業 MITM プロキシ環境では SSL_CERT_FILE に社内 CA を含むバンドルを指す。
-    """
-    ssl_cert_file = os.environ.get("SSL_CERT_FILE")
-    if ssl_cert_file:
-        return ssl.create_default_context(cafile=ssl_cert_file)
-    try:
-        import certifi
-
-        return ssl.create_default_context(cafile=certifi.where())
-    except ImportError:
-        return None
-
-
-_SSL_CONTEXT = _make_ssl_context()
+# 5 MB 上限。Web 記事の生 HTML は通常 1 MB 未満で収まる
+_MAX_RESPONSE_BYTES = 5 * 1024 * 1024
 
 # stdlib urllib で fetch する理由 (trafilatura.fetch_url を使わない理由):
 # - trafilatura は内部で urllib3 + 自前 certifi バンドル固定で SSL_CERT_FILE env を respect しない
@@ -109,9 +99,14 @@ def fetch_article(url: str, timeout: float = 15.0) -> tuple[str, str | None]:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout, context=_SSL_CONTEXT) as resp:
-            http_charset = resp.headers.get_content_charset()
-            raw = resp.read()
+        raw, http_charset = safe_urlopen_bytes(
+            req,
+            timeout=timeout,
+            ssl_context=_SSL_CONTEXT,
+            max_bytes=_MAX_RESPONSE_BYTES,
+        )
+    except UnsafeURLError as e:
+        raise ArticleFetchError(f"refused unsafe URL: {e}") from e
     except urllib.error.HTTPError as e:
         raise ArticleFetchError(f"HTTP {e.code} fetching {url}: {e.reason}") from e
     except urllib.error.URLError as e:
