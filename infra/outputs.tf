@@ -26,9 +26,9 @@ output "lambda_log_group" {
 
 # --- Phase 3 / Web UI ---
 
-# ACM cert の DNS validation 用 CNAME を mgmt zone に手動投入する
+# ACM cert の DNS validation 用 CNAME を親 zone に手動投入する
 output "acm_validation_records" {
-  description = "mgmt account の Route53 (korotora.com zone) に手動投入する CNAME"
+  description = "親 Route53 hosted zone に手動投入する CNAME"
   value = [
     for opt in aws_acm_certificate.web.domain_validation_options : {
       name  = opt.resource_record_name
