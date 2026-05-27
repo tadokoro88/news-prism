@@ -35,16 +35,55 @@ _PERSONA_TEMPERATURE = {
     "blogger": 0.9,  # ネタの発散重視
 }
 
+# Phase 8.1: Guardrails (SPEC §15、DECISION-0024)。
+# DRAFT を当面ハードコード、published version に切るときに env 経由へ寄せる。
+_GUARDRAIL_VERSION = "DRAFT"
+
+
+def _guardrail_config_for(persona: str) -> dict[str, Any] | None:
+    """env から persona の guardrailConfig を組み立てる。
+
+    env 未設定 (= CLI / unit test) では None を返し、Guardrail off で動作させる。
+    Summary のみ news-prism-grounding profile、それ以外は news-prism-default。
+    """
+    default_id = os.environ.get("NEWS_PRISM_GUARDRAIL_DEFAULT_ID")
+    grounding_id = os.environ.get("NEWS_PRISM_GUARDRAIL_GROUNDING_ID")
+    if not default_id:
+        return None
+    gid = grounding_id if persona == "summary" and grounding_id else default_id
+    return {
+        "guardrailIdentifier": gid,
+        "guardrailVersion": _GUARDRAIL_VERSION,
+        "trace": "enabled",
+    }
+
 
 def _build_call_kwargs(
     persona: str, context_md: str, article_body: str
 ) -> dict[str, Any]:
-    """指定 persona 用の converse_stream パラメータを組み立てる。"""
+    """指定 persona 用の converse_stream パラメータを組み立てる。
+
+    Guardrail が有効な時は <article> ブロックを guardContent で wrap して
+    Prompt Attack 評価対象を絞り込む (SPEC §15.3)。
+    """
     tool_spec = get_persona_tool(persona)
     tool_name = get_persona_tool_name(persona)
     persona_label = PERSONA_LABELS[persona]
 
-    return {
+    guardrail_config = _guardrail_config_for(persona)
+    if guardrail_config is not None:
+        article_block: dict[str, Any] = {
+            "guardContent": {
+                "text": {
+                    "text": f"<article>\n{article_body}\n</article>",
+                    "qualifiers": ["guard_content"],
+                }
+            }
+        }
+    else:
+        article_block = {"text": f"<article>\n{article_body}\n</article>"}
+
+    kwargs: dict[str, Any] = {
         "system": [{"text": get_persona_system(persona)}],
         "messages": [
             {
@@ -58,7 +97,7 @@ def _build_call_kwargs(
                     },
                     {"text": f"<context>\n{context_md}\n</context>"},
                     {"cachePoint": {"type": "default"}},
-                    {"text": f"<article>\n{article_body}\n</article>"},
+                    article_block,
                 ],
             }
         ],
@@ -71,6 +110,86 @@ def _build_call_kwargs(
             "temperature": _PERSONA_TEMPERATURE.get(persona, 0.6),
         },
     }
+    if guardrail_config is not None:
+        kwargs["guardrailConfig"] = guardrail_config
+    return kwargs
+
+
+def _classify_guardrail_action(trace: dict[str, Any]) -> str:
+    """metadata.trace.guardrail から SPEC §15.5 のアクション文字列を返す。
+
+    優先順: INPUT_BLOCKED > OUTPUT_BLOCKED > GROUNDING_FAILED > ANONYMIZED > NONE。
+    Bedrock の trace schema は将来変わりうるので、想定外の構造は NONE にフォールバックする。
+    """
+    if not isinstance(trace, dict):
+        return "NONE"
+
+    input_assess = trace.get("inputAssessment", {}) or {}
+    output_assess = trace.get("outputAssessments", {}) or {}
+
+    def _any_blocked(assess: dict[str, Any]) -> bool:
+        for assessment in _iter_assessments(assess):
+            if _policy_has_action(assessment, "BLOCKED"):
+                return True
+        return False
+
+    def _any_grounding_failed(assess: dict[str, Any]) -> bool:
+        for assessment in _iter_assessments(assess):
+            cg = assessment.get("contextualGroundingPolicy") or {}
+            for f in cg.get("filters", []) or []:
+                if f.get("action") == "BLOCKED":
+                    return True
+        return False
+
+    def _any_anonymized(assess: dict[str, Any]) -> bool:
+        for assessment in _iter_assessments(assess):
+            sip = assessment.get("sensitiveInformationPolicy") or {}
+            for entity in sip.get("piiEntities", []) or []:
+                if entity.get("action") == "ANONYMIZED":
+                    return True
+        return False
+
+    if _any_blocked(input_assess):
+        return "INPUT_BLOCKED"
+    if _any_blocked(output_assess):
+        return "OUTPUT_BLOCKED"
+    if _any_grounding_failed(output_assess):
+        return "GROUNDING_FAILED"
+    if _any_anonymized(input_assess) or _any_anonymized(output_assess):
+        return "ANONYMIZED"
+    return "NONE"
+
+
+def _iter_assessments(assess: dict[str, Any]) -> list[dict[str, Any]]:
+    """input/output どちらでも assessments の list を取り出せるよう正規化する。
+
+    inputAssessment は guardrailId をキーに持つ dict、outputAssessments は同じく
+    guardrailId → list[assessment] の dict、という非対称な形になっている。
+    """
+    if not isinstance(assess, dict):
+        return []
+    out: list[dict[str, Any]] = []
+    for v in assess.values():
+        if isinstance(v, list):
+            out.extend(a for a in v if isinstance(a, dict))
+        elif isinstance(v, dict):
+            out.append(v)
+    return out
+
+
+def _policy_has_action(assessment: dict[str, Any], action: str) -> bool:
+    for key, items_key in (
+        ("topicPolicy", "topics"),
+        ("contentPolicy", "filters"),
+        ("wordPolicy", "customWords"),
+        ("wordPolicy", "managedWordLists"),
+        ("sensitiveInformationPolicy", "piiEntities"),
+    ):
+        policy = assessment.get(key) or {}
+        for entry in policy.get(items_key, []) or []:
+            if entry.get("action") == action:
+                return True
+    return False
 
 
 def _analyze_persona(
@@ -93,6 +212,7 @@ def _analyze_persona(
     usage: dict[str, Any] = {}
     metrics: dict[str, Any] = {}
     stop_reason: str | None = None
+    guardrail_action = "NONE"
 
     try:
         for event in response["stream"]:
@@ -107,12 +227,27 @@ def _analyze_persona(
             elif "metadata" in event:
                 usage = event["metadata"].get("usage", {})
                 metrics = event["metadata"].get("metrics", {})
+                trace = event["metadata"].get("trace", {}) or {}
+                action = _classify_guardrail_action(trace.get("guardrail", {}))
+                # 最も重い action を保持 (NONE は上書きしない)
+                if action != "NONE":
+                    guardrail_action = action
     except ClientError as e:
+        # SPEC §15.5: Guardrail API 自体のエラーも fail-open でログのみ
         raise RuntimeError(f"Bedrock stream error ({persona}): {e}") from e
 
     elapsed_ms = int((time.monotonic() - start) * 1000)
 
-    if stop_reason and stop_reason != "tool_use":
+    # guardrail intervened は SPEC §15.5 の stop reason として正常系扱い
+    if stop_reason == "guardrail_intervened":
+        # metadata.trace を読めずに到達した場合の fallback
+        if guardrail_action == "NONE":
+            guardrail_action = "INPUT_BLOCKED"
+        print(
+            f"[info] {persona}: guardrail intervened (action={guardrail_action})",
+            file=sys.stderr,
+        )
+    elif stop_reason and stop_reason != "tool_use":
         print(
             f"[warn] {persona}: unexpected stop_reason: {stop_reason!r} (期待: 'tool_use')",
             file=sys.stderr,
@@ -120,6 +255,14 @@ def _analyze_persona(
 
     raw = "".join(chunks)
     if not raw:
+        # Guardrail BLOCKED で tool_use が出ない場合、空 output で fail-open (SPEC §15.5)
+        if guardrail_action in ("INPUT_BLOCKED", "OUTPUT_BLOCKED"):
+            return {
+                "output": {},
+                "usage": usage,
+                "latency_ms": metrics.get("latencyMs", elapsed_ms),
+                "guardrail_action": guardrail_action,
+            }
         raise RuntimeError(f"{persona}: stream produced no tool_use input")
 
     try:
@@ -133,6 +276,7 @@ def _analyze_persona(
         "output": output,
         "usage": usage,
         "latency_ms": metrics.get("latencyMs", elapsed_ms),
+        "guardrail_action": guardrail_action,
     }
 
 
@@ -253,6 +397,7 @@ def analyze(context_md: str, article_body: str) -> dict[str, Any]:
         "output_tokens": 0,
     }
     per_call: dict[str, dict[str, Any]] = {}
+    guardrail_actions: dict[str, str] = {}
     for persona, r in results.items():
         if r is None:
             per_call[persona] = {"error": errors.get(persona, "unknown")}
@@ -262,12 +407,15 @@ def analyze(context_md: str, article_body: str) -> dict[str, Any]:
         total_usage["cache_read_input_tokens"] += u.get("cacheReadInputTokens", 0)
         total_usage["cache_write_input_tokens"] += u.get("cacheWriteInputTokens", 0)
         total_usage["output_tokens"] += u.get("outputTokens", 0)
+        action = r.get("guardrail_action", "NONE")
+        guardrail_actions[persona] = action
         per_call[persona] = {
             "input_tokens": u.get("inputTokens", 0),
             "cache_read_input_tokens": u.get("cacheReadInputTokens", 0),
             "cache_write_input_tokens": u.get("cacheWriteInputTokens", 0),
             "output_tokens": u.get("outputTokens", 0),
             "latency_ms": r["latency_ms"],
+            "guardrail_action": action,
         }
 
     return {
@@ -275,4 +423,5 @@ def analyze(context_md: str, article_body: str) -> dict[str, Any]:
         "per_call": per_call,
         "total_usage": total_usage,
         "wall_time_ms": wall_time_ms,
+        "guardrail_actions": guardrail_actions,
     }

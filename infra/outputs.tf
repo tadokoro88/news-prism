@@ -63,3 +63,25 @@ output "web_bucket_name" {
   description = "Web UI 用 S3 bucket"
   value       = aws_s3_bucket.web.id
 }
+
+# --- Phase 8 / Bedrock Guardrails ---
+
+output "guardrail_default_id" {
+  description = "Default guardrail (Prompt Attack + PII) の identifier。Lambda 側 env に流し込み済み"
+  value       = aws_bedrock_guardrail.default.guardrail_id
+}
+
+output "guardrail_grounding_id" {
+  description = "Grounding guardrail (Summary 用) の identifier"
+  value       = aws_bedrock_guardrail.grounding.guardrail_id
+}
+
+output "guardrail_default_arn" {
+  description = "Default guardrail の ARN (ApplyGuardrail IAM の Resource として使用)"
+  value       = aws_bedrock_guardrail.default.guardrail_arn
+}
+
+output "guardrail_grounding_arn" {
+  description = "Grounding guardrail の ARN"
+  value       = aws_bedrock_guardrail.grounding.guardrail_arn
+}

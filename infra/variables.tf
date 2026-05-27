@@ -82,3 +82,17 @@ variable "budget_monthly_limit_usd" {
   type        = number
   default     = 50
 }
+
+# --- Bedrock Guardrails (Phase 8) ---
+
+variable "guardrail_grounding_threshold" {
+  description = "Contextual Grounding の grounding threshold (0.0-1.0、高いほど厳格)。Phase 8.1 は安全側で 0.75 開始、誤検知が出れば下げる"
+  type        = number
+  default     = 0.75
+}
+
+variable "guardrail_relevance_threshold" {
+  description = "Contextual Grounding の relevance threshold (0.0-1.0)。Summary が <article> と無関係な内容を出していないかを見る"
+  type        = number
+  default     = 0.75
+}
