@@ -137,10 +137,19 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         # 上流の詳細 (model id, ARN, region 等) は client に出さない
         return _response(502, {"error": "upstream orchestration error"})
 
-    # 4. DynamoDB 保存 (DECISION-0015 schema)
+    # 4. DynamoDB 保存 (DECISION-0015 schema、SPEC §15.7 で guardrail_actions 拡張)
     analysis_id = generate_ulid()
     created_at = dt.datetime.now(dt.UTC).isoformat().replace("+00:00", "Z")
     failed_personas = _failed_personas(result["per_call"])
+    guardrail_actions = result.get("guardrail_actions") or {}
+    meta: dict[str, Any] = {
+        "wall_time_ms": result["wall_time_ms"],
+        "total_usage": result["total_usage"],
+        "failed_personas": failed_personas,
+    }
+    # 全 persona NONE のときは何も書かない (旧 schema との見え方を合わせる)
+    if any(action != "NONE" for action in guardrail_actions.values()):
+        meta["guardrail_actions"] = guardrail_actions
     item: dict[str, Any] = {
         "analysis_id": analysis_id,
         "user_id": _DEFAULT_USER_ID,
@@ -151,11 +160,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "perspectives": result["output"].get("perspectives", {}),
         "relevant_okr_refs": result["output"].get("relevant_okr_refs", []),
         "action_items": result["output"].get("action_items", []),
-        "meta": {
-            "wall_time_ms": result["wall_time_ms"],
-            "total_usage": result["total_usage"],
-            "failed_personas": failed_personas,
-        },
+        "meta": meta,
     }
     try:
         put_analysis(item)
@@ -184,19 +189,17 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 "total_usage": result["total_usage"],
                 "per_call": result["per_call"],
                 "failed_personas": failed_personas,
+                "guardrail_actions": guardrail_actions,
             },
             ensure_ascii=False,
         )
     )
 
-    return _response(
-        200,
-        {
-            "result": final,
-            "meta": {
-                "wall_time_ms": result["wall_time_ms"],
-                "total_usage": result["total_usage"],
-                "failed_personas": failed_personas,
-            },
-        },
-    )
+    response_meta: dict[str, Any] = {
+        "wall_time_ms": result["wall_time_ms"],
+        "total_usage": result["total_usage"],
+        "failed_personas": failed_personas,
+    }
+    if any(action != "NONE" for action in guardrail_actions.values()):
+        response_meta["guardrail_actions"] = guardrail_actions
+    return _response(200, {"result": final, "meta": response_meta})

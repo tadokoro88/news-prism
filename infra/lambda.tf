@@ -32,6 +32,17 @@ data "aws_iam_policy_document" "lambda_inline" {
     resources = ["*"]
   }
 
+  # Bedrock Guardrails — converse_stream に guardrailConfig を渡す時に必要。
+  # 2 つの guardrail ARN に絞る (SPEC §15.8)。
+  statement {
+    sid     = "BedrockApplyGuardrail"
+    actions = ["bedrock:ApplyGuardrail"]
+    resources = [
+      aws_bedrock_guardrail.default.guardrail_arn,
+      aws_bedrock_guardrail.grounding.guardrail_arn,
+    ]
+  }
+
   # DynamoDB — テーブル + GSI のみ
   statement {
     sid     = "DynamoDBWrite"
@@ -90,6 +101,11 @@ resource "aws_lambda_function" "analyze" {
       NEWS_PRISM_CONTEXT_URL       = var.context_url
       NEWS_PRISM_GH_PAT_SECRET_ARN = aws_secretsmanager_secret.github_pat.arn
       LOG_LEVEL                    = "INFO"
+
+      # Bedrock Guardrails (Phase 8.1、SPEC §15)。
+      # version は当面 DRAFT 固定 (アプリ側 _PERSONA_GUARDRAIL でハードコード)。
+      NEWS_PRISM_GUARDRAIL_DEFAULT_ID   = aws_bedrock_guardrail.default.guardrail_id
+      NEWS_PRISM_GUARDRAIL_GROUNDING_ID = aws_bedrock_guardrail.grounding.guardrail_id
     }
   }
 
