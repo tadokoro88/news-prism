@@ -65,16 +65,18 @@ resource "aws_bedrock_guardrail" "default" {
   sensitive_information_policy_config {
     # 注: top-level `action` だけ書くと AWS 暗黙 default で OUTPUT only になり、
     # INPUT 側 (記事本文に含まれる PII) は scan されない (Phase 8.1 で実測、DECISION-0025)。
-    # API は input_action / input_enabled / output_action / output_enabled をサポートするが、
-    # Terraform AWS provider v5.x の pii_entities_config はこれら attribute を持たない。
-    # Phase 8.2 で provider を v6.22+ にアップグレードした上で input_action 等を IaC で
-    # 正式記述する。それまでは OUTPUT only に乗ったままで運用 (= tool_use 経路で素通り
-    # するため実効ゼロ、これも Article 1 の記事ネタ)。
+    # input_action / input_enabled / output_action / output_enabled を明示することで
+    # INPUT/OUTPUT 両方で ANONYMIZE が走る。News Prism は第三者 PII を LLM 到達前に
+    # mask したいので INPUT も有効化する。
     dynamic "pii_entities_config" {
       for_each = local.guardrail_pii_anonymize_types
       content {
-        type   = pii_entities_config.value
-        action = "ANONYMIZE"
+        type           = pii_entities_config.value
+        action         = "ANONYMIZE"
+        input_action   = "ANONYMIZE"
+        input_enabled  = true
+        output_action  = "ANONYMIZE"
+        output_enabled = true
       }
     }
   }
@@ -112,16 +114,18 @@ resource "aws_bedrock_guardrail" "grounding" {
   sensitive_information_policy_config {
     # 注: top-level `action` だけ書くと AWS 暗黙 default で OUTPUT only になり、
     # INPUT 側 (記事本文に含まれる PII) は scan されない (Phase 8.1 で実測、DECISION-0025)。
-    # API は input_action / input_enabled / output_action / output_enabled をサポートするが、
-    # Terraform AWS provider v5.x の pii_entities_config はこれら attribute を持たない。
-    # Phase 8.2 で provider を v6.22+ にアップグレードした上で input_action 等を IaC で
-    # 正式記述する。それまでは OUTPUT only に乗ったままで運用 (= tool_use 経路で素通り
-    # するため実効ゼロ、これも Article 1 の記事ネタ)。
+    # input_action / input_enabled / output_action / output_enabled を明示することで
+    # INPUT/OUTPUT 両方で ANONYMIZE が走る。News Prism は第三者 PII を LLM 到達前に
+    # mask したいので INPUT も有効化する。
     dynamic "pii_entities_config" {
       for_each = local.guardrail_pii_anonymize_types
       content {
-        type   = pii_entities_config.value
-        action = "ANONYMIZE"
+        type           = pii_entities_config.value
+        action         = "ANONYMIZE"
+        input_action   = "ANONYMIZE"
+        input_enabled  = true
+        output_action  = "ANONYMIZE"
+        output_enabled = true
       }
     }
   }
