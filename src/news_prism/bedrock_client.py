@@ -241,10 +241,25 @@ def _analyze_persona(
             elif "messageStop" in event:
                 stop_reason = event["messageStop"].get("stopReason")
             elif "metadata" in event:
-                usage = event["metadata"].get("usage", {})
-                metrics = event["metadata"].get("metrics", {})
-                trace = event["metadata"].get("trace", {}) or {}
-                action = _classify_guardrail_action(trace.get("guardrail", {}))
+                metadata = event["metadata"]
+                usage = metadata.get("usage", {})
+                metrics = metadata.get("metrics", {})
+                trace = metadata.get("trace", {}) or {}
+                guardrail_trace = trace.get("guardrail", {}) or {}
+                # Phase 8.2 検証用 raw dump (DECISION-0025 #3、DECISION-0026)。
+                # NEWS_PRISM_GUARDRAIL_TRACE_DEBUG=1 でのみ吐く。本番ログ汚染防止。
+                if os.environ.get("NEWS_PRISM_GUARDRAIL_TRACE_DEBUG"):
+                    print(
+                        f"[trace-meta-keys] {persona}: "
+                        f"metadata={list(metadata.keys())} trace={list(trace.keys())}",
+                        file=sys.stderr,
+                    )
+                    print(
+                        f"[trace] {persona}: "
+                        f"{json.dumps(guardrail_trace, ensure_ascii=False)}",
+                        file=sys.stderr,
+                    )
+                action = _classify_guardrail_action(guardrail_trace)
                 # 最も重い action を保持 (NONE は上書きしない)
                 if action != "NONE":
                     guardrail_action = action
