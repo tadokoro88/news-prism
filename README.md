@@ -216,7 +216,7 @@ uv run pyright src/news_prism/   # 型チェック
 - **Lambda zip サイズ**: 約 18MB (Bedrock 用 boto3 は Lambda runtime 同梱を流用)
 - **cache 配置**: persona ごとに独立 `cachePoint`、`<context>` の後 / `<article>` の前。4 並列で各 ~2,850 tokens の cache を持つ
 - **Bedrock model**: Sonnet 4.6 APAC CRIS (`jp.anthropic.claude-sonnet-4-6`)、temperature は persona 別に調整 (Blogger 0.9 / 他 0.3-0.6)
-- **Bedrock Guardrails**: Prompt Attack (`<article>` scope) + PII Anonymize + Contextual Grounding (Summary 専用) を構成。tool calling 経路での効き方や `guardContent` qualifier の制約など、設計判断と落とし穴の詳細はブログ記事を参照
+- **Bedrock Guardrails**: Prompt Attack (`<article>` scope) + PII Anonymize + Contextual Grounding (Summary 専用) を 3 種構成。tool calling 経路では OUTPUT-side filter (PII + Grounding) が構造的に素通りする trap があり、実効的に効くのは INPUT-side 2 種のみ。`guardContent` qualifier の制約、combined qualifier 設計、tool_use bypass 等の詳細はブログ記事を参照
 - **DynamoDB**: PK = `analysis_id` (ULID), GSI1 = `user_id` + `created_at` (時系列一覧用)、On-demand
 - **API Key**: CloudFront → API Gateway の **Origin Custom Header で注入**、ブラウザ JS には露出しない
 - **Terraform state**: local (個人開発、共同編集する時に S3 backend に移行)
