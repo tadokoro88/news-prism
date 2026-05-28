@@ -63,24 +63,45 @@ def _build_call_kwargs(
 ) -> dict[str, Any]:
     """指定 persona 用の converse_stream パラメータを組み立てる。
 
-    Guardrail が有効な時は <article> ブロックを guardContent で wrap して
-    Prompt Attack 評価対象を絞り込む (SPEC §15.3)。
+    Guardrail が有効な時:
+    - 指示文を `query` qualifier ブロックでラップ (Contextual Grounding 用)
+    - `<article>` を `guard_content` qualifier でラップ (Prompt Attack scope)
+    - Summary persona だけ追加で `grounding_source` qualifier を combine
+      (1 ブロックに複数 qualifier 指定可、Phase 8.2 検証で確認、SPEC §15.3 / §15.12)
+
+    cachePoint は `<article>` の直前を維持。指示文と <context> が cache 対象。
     """
     tool_spec = get_persona_tool(persona)
     tool_name = get_persona_tool_name(persona)
     persona_label = PERSONA_LABELS[persona]
+    instruction_text = (
+        f"次に与える記事を {persona_label} として分析し、"
+        f"{tool_name} ツールで結果を返してください。"
+    )
 
     guardrail_config = _guardrail_config_for(persona)
     if guardrail_config is not None:
+        # Summary だけ `grounding_source` を combine、それ以外は `guard_content` のみ。
+        # 他 persona の guardrail (news-prism-default) には Grounding policy が
+        # 入っていないので `query` qualifier は無視される (副作用なし、コード分岐削減)。
+        article_qualifiers = ["guard_content"]
+        if persona == "summary":
+            article_qualifiers = ["guard_content", "grounding_source"]
+        instruction_block: dict[str, Any] = {
+            "guardContent": {
+                "text": {"text": instruction_text, "qualifiers": ["query"]}
+            }
+        }
         article_block: dict[str, Any] = {
             "guardContent": {
                 "text": {
                     "text": f"<article>\n{article_body}\n</article>",
-                    "qualifiers": ["guard_content"],
+                    "qualifiers": article_qualifiers,
                 }
             }
         }
     else:
+        instruction_block = {"text": instruction_text}
         article_block = {"text": f"<article>\n{article_body}\n</article>"}
 
     kwargs: dict[str, Any] = {
@@ -89,12 +110,7 @@ def _build_call_kwargs(
             {
                 "role": "user",
                 "content": [
-                    {
-                        "text": (
-                            f"次に与える記事を {persona_label} として分析し、"
-                            f"{tool_name} ツールで結果を返してください。"
-                        )
-                    },
+                    instruction_block,
                     {"text": f"<context>\n{context_md}\n</context>"},
                     {"cachePoint": {"type": "default"}},
                     article_block,
